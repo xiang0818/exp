@@ -5,10 +5,10 @@ import cn.think.in.java.open.exp.client.ExPBean;
 import lombok.extern.slf4j.Slf4j;
 
 /**
+ * @version 1.0
  * @Author cxs
  * @Description
  * @date 2023/8/9
- * @version 1.0
  **/
 @Slf4j
 public class UserPlugin implements UserService, ExPBean {
@@ -19,5 +19,10 @@ public class UserPlugin implements UserService, ExPBean {
     public void createUserExt() {
         System.out.println("name = " + name);
         log.info("name = {}", name);
+    }
+
+    @Override
+    public String getName() {
+        return UserService.class.getName();
     }
 }

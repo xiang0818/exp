@@ -5,13 +5,12 @@ import cn.think.in.java.open.exp.client.ExpAppContext;
 import org.junit.Test;
 
 import java.io.File;
-import java.util.function.Consumer;
 
 /**
+ * @version 1.0
  * @Author cxs
  * @Description
  * @date 2023/8/12
- * @version 1.0
  **/
 public class BootstrapTest3 {
 
@@ -20,7 +19,7 @@ public class BootstrapTest3 {
 
         String absolutePath = new File("../../exp-plugins/").getAbsolutePath();
         ExpAppContext bootstrap = Bootstrap.bootstrap(absolutePath, "exp-workdir3");
-        bootstrap.get(UserService.class).stream().findFirst().ifPresent(userService -> {
+        bootstrap.list(UserService.class).stream().findFirst().ifPresent(userService -> {
             System.out.println("exist");
             System.out.println(userService.getClass());
             System.out.println(userService.getClass().getClassLoader());

@@ -1,20 +1,23 @@
 package cn.think.in.java.open.exp.classloader.impl;
 
-import cn.think.in.java.open.exp.classloader.ExpClass;
-import cn.think.in.java.open.exp.classloader.PluginMetaConfig;
-import cn.think.in.java.open.exp.classloader.PluginMetaFat;
-import cn.think.in.java.open.exp.classloader.PluginMetaService;
+import cn.think.in.java.open.exp.classloader.*;
 import cn.think.in.java.open.exp.classloader.support.ClassLoaderFinder;
 import cn.think.in.java.open.exp.classloader.support.DirectoryCleaner;
 import cn.think.in.java.open.exp.classloader.support.MetaConfigReader;
 import cn.think.in.java.open.exp.classloader.support.PluginMetaInnerModel;
-import cn.think.in.java.open.exp.client.ExpBoot;
-import cn.think.in.java.open.exp.client.PluginObjectScanner;
-import cn.think.in.java.open.exp.client.StringUtil;
+import cn.think.in.java.open.exp.client.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @Author cxs
@@ -31,10 +34,35 @@ public class PluginMetaServiceImpl implements PluginMetaService {
 
     private Set<String> ids = new HashSet<>();
 
+    public static List<ConfigSupport> getConfigSupportFields(Class<?> clazz, String pluginId) {
+        return Stream.of(clazz.getDeclaredFields())
+                .filter(field -> java.lang.reflect.Modifier.isStatic(field.getModifiers()))
+                .filter(field -> field.getType().equals(ConfigSupport.class))
+                .peek(field -> field.setAccessible(true))
+                .map(field -> {
+                    try {
+                        ConfigSupport c = (ConfigSupport) field.get(clazz);
+                        c.setPluginId(pluginId);
+                        return c;
+                    } catch (IllegalAccessException e) {
+                        log.error(e.getMessage(), e);
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+    }
+
     @Override
     public void setConfig(PluginMetaConfig pluginMetaConfig) {
         this.pluginMetaConfig = pluginMetaConfig;
     }
+
+    @Override
+    public PluginMetaThin parse(File file) {
+        PluginMetaInnerModel meta = MetaConfigReader.getMeta(file);
+        return meta.conv();
+    }
+
 
     @Override
     public PluginMetaFat install(File file) throws Throwable {
@@ -44,35 +72,61 @@ public class PluginMetaServiceImpl implements PluginMetaService {
         }
         Map<String, String> mapping = MetaConfigReader.getMapping(file);
 
-        String dir = pluginMetaConfig.getWorkDir() + "/" + meta.getPluginId();
+        String dir = pluginMetaConfig.getWorkDir() + File.separator + meta.getPluginId();
         if (new File(dir).exists()) {
             log.warn("---->>>>> 插件目录已经存在, 删除 = {}", dir);
             if (Boolean.parseBoolean(pluginMetaConfig.getAutoDelete())) {
-                new File(dir).delete();
+                Files.walkFileTree(new File(dir).toPath(), new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        Files.delete(dir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
             } else {
                 throw new RuntimeException("插件目录已经存在, 请先卸载再安装.");
             }
         }
 
         PluginMetaFat pluginMetaFat = new PluginMetaFat();
-        ClassLoader classLoader = ClassLoaderFinder.find(file, dir);
+        String mode = meta.getClassLoaderMode();
+        if (StringUtil.isEmpty(mode)) {
+            mode = Constant.PLUGIN_CLASS_LOADER_MODE_PARENT;
+        }
+        BaseClassLoader classLoader = ClassLoaderFinder.find(file, dir, mode);
         pluginMetaFat.setClassLoader(classLoader);
+        DefaultScanner scanner = new DefaultScanner();
+        if (meta.getPluginBootClass() != null) {
+            Class<ExpBoot> aClass = (Class<ExpBoot>) classLoader.loadClass(meta.getPluginBootClass());
+            pluginMetaFat.setConfigSupportList(getConfigSupportFields(aClass, meta.getPluginId()));
+            ExpBoot expBoot = aClass.newInstance();
+            scanner = (DefaultScanner) expBoot.getRegister();
+            expBoot.start(meta.getPluginId());
+            pluginMetaFat.setExpBoot(expBoot);
+        } else {
+            scanner.setPluginClassLoader(classLoader);
+            scanner.setScanPath(meta.getPluginCode());
+            scanner.setLocation(classLoader.getPath());
+        }
 
-        Class<ExpBoot> aClass = (Class<ExpBoot>) classLoader.loadClass(meta.getPluginBootClass());
-        ExpBoot expBoot = aClass.newInstance();
-        PluginObjectScanner register = expBoot.getRegister();
-        expBoot.setPluginId(meta.getPluginId());
-
-        pluginMetaFat.setScanner(register);
+        pluginMetaFat.setScanner(scanner);
         pluginMetaFat.setExtensionMappings(mapping);
         pluginMetaFat.setPluginId(meta.getPluginId());
         pluginMetaFat.setPluginCode(meta.getPluginCode());
         pluginMetaFat.setPluginDesc(meta.getPluginDesc());
         pluginMetaFat.setPluginVersion(meta.getPluginVersion());
         pluginMetaFat.setPluginExt(meta.getPluginExt());
-        pluginMetaFat.setPluginConfig(meta.getPluginConfig());
         pluginMetaFat.setPluginBootClass(meta.getPluginBootClass());
+        pluginMetaFat.setClassLoaderMode(meta.getClassLoaderMode());
+
         pluginMetaFat.setLocation(new File(dir));
+
 
         cache.put(pluginMetaFat.getPluginId(), pluginMetaFat);
 
@@ -101,6 +155,10 @@ public class PluginMetaServiceImpl implements PluginMetaService {
             entry.getValue().removeIf(s -> s.equals(pluginId));
         }
 
+        //如果含Boot启动类则停止
+        if (pluginMetaFat.getExpBoot() != null) {
+            Optional.of(pluginMetaFat.getExpBoot()).ifPresent(ExpBoot::stop);
+        }
         ids.remove(pluginId);
     }
 
@@ -137,4 +195,5 @@ public class PluginMetaServiceImpl implements PluginMetaService {
         Class<T> aClass = (Class<T>) pluginMetaFat.getClassLoader().loadClass(extImpl);
         return new ExpClass<>(aClass, pluginId);
     }
+
 }

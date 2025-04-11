@@ -7,6 +7,11 @@ public interface ExpBoot {
 
     PluginObjectScanner getRegister() throws Throwable;
 
-    default void setPluginId(String pluginId) {
+    default void start(String pluginId) {
+
+    }
+
+    default void stop() {
+
     }
 }

@@ -1,23 +1,31 @@
 package cn.think.in.java.open.exp.example.b;
 
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.annotation.Resource;
+
 /**
+ * @version 1.0
  * @Author cxs
  * @Description
  * @date 2023/8/9
- * @version 1.0
  **/
 @RestController
 @RequestMapping("/hello")
 public class MyController {
 
-    @RequestMapping("/bb2")
-    public String hello(@RequestParam(name = "key") String key) {
+    @Resource
+    MybatisSupport mybatisSupport;
 
-        return Boot.get(key, "default") + "hello2 " + getClass().getClassLoader() + getClass().getProtectionDomain()
-                .getCodeSource().getLocation();
+    @GetMapping("/bv2")
+    public String hello() {
+
+        MyMapper myMapper = mybatisSupport.doGetMapper(MyMapper.class);
+
+        MyTable myTable = myMapper.selectById(1L);
+
+        return myTable.name;
     }
 }

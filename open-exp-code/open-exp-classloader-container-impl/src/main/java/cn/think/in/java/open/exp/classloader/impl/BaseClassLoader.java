@@ -1,7 +1,10 @@
 package cn.think.in.java.open.exp.classloader.impl;
 
+import cn.think.in.java.open.exp.classloader.LogSpi;
 import cn.think.in.java.open.exp.client.PluginClassLoader;
+import cn.think.in.java.open.exp.client.SpiFactory;
 
+import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -23,10 +26,31 @@ public class BaseClassLoader extends URLClassLoader implements PluginClassLoader
 
     private final Path extractPath;
     boolean definePackage = false;
+    private boolean isParentMode;
+    private LogSpi logSpi = SpiFactory.get(LogSpi.class, c -> {
 
-    public BaseClassLoader(String extractDir, ClassLoader parent) throws Exception {
-        super(new URL[]{Paths.get(extractDir).toUri().toURL()}, parent);
+    });
+
+    public BaseClassLoader(String extractDir, ClassLoader parent, boolean isParentMode) throws Exception {
+        super(new URL[]{new URL("file:" + new File(extractDir).getAbsolutePath() + "/")}, parent);
         this.extractPath = Paths.get(extractDir);
+        this.isParentMode = isParentMode;
+    }
+
+    @Override
+    public Class<?> loadClass(String name) throws ClassNotFoundException {
+        if (isParentMode) {
+            return super.loadClass(name);
+        }
+        Class<?> loadedClass = findLoadedClass(name);
+        if (loadedClass != null) {
+            return loadedClass;
+        }
+        try {
+            return findClass(name);
+        } catch (Exception e) {
+            return getParent().loadClass(name);
+        }
     }
 
     @Override
@@ -44,10 +68,16 @@ public class BaseClassLoader extends URLClassLoader implements PluginClassLoader
             ProtectionDomain protectionDomain = new ProtectionDomain(codeSource, permissions);
 
             if (!definePackage) {
-                definePackage(name.substring(0, name.lastIndexOf(".")), null, null, null, null, null, null, null);
+                try {
+                    definePackage(name.substring(0, name.lastIndexOf(".")), null, null, null, null, null, null, null);
+                } catch (Exception e) {
+                    // ignore
+                }
                 definePackage = true;
             }
-            return defineClass(name, classData, 0, classData.length, protectionDomain);
+            Class<?> aClass = defineClass(name, classData, 0, classData.length, protectionDomain);
+            logSpi.enhance(aClass);
+            return aClass;
         } catch (Exception e) {
             throw new ClassNotFoundException(name, e);
         }

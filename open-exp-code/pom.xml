@@ -17,6 +17,8 @@
         <module>open-exp-core-impl</module>
         <module>open-exp-plugin-depend</module>
         <module>open-exp-object-field-extend</module>
+        <module>open-exp-json-api</module>
+        <module>open-exp-http-server</module>
     </modules>
 
     <properties>

@@ -1,18 +1,20 @@
 package cn.think.in.java.open.exp.classloader.support;
 
+import cn.think.in.java.open.exp.classloader.PluginMetaThin;
+import cn.think.in.java.open.exp.client.ConfigSupport;
 import lombok.Data;
 
+import java.util.List;
+
 /**
+ * @version 1.0
  * @Author cxs
  * @Description
  * @date 2023/8/9
- * @version 1.0
  **/
 @Data
 public class PluginMetaInnerModel {
 
-    /**
-     */
     String pluginId;
 
     String pluginCode;
@@ -23,21 +25,31 @@ public class PluginMetaInnerModel {
 
     String pluginExt;
 
-    String pluginConfig;
-
     String pluginBootClass;
 
+    String classLoaderMode;
 
-    public PluginMetaInnerModel(String pluginCode, String pluginDesc,
-                                String pluginVersion, String pluginExt,
-                                String pluginConfig, String pluginBootClass) {
+    List<ConfigSupport> configSupportList;
 
-        this.pluginId = pluginCode + UniqueNameUtil.getSplit() + pluginVersion;
+
+    public PluginMetaInnerModel(String pluginCode, String pluginDesc, String
+            pluginVersion, String pluginExt, String pluginBootClass,
+                                List<ConfigSupport> configSupportList, String classLoaderMode) {
+
+        this.pluginId = pluginCode + UniqueNameUtil.getPluginIdSplit() + pluginVersion;
         this.pluginCode = pluginCode;
         this.pluginDesc = pluginDesc;
         this.pluginVersion = pluginVersion;
         this.pluginExt = pluginExt;
-        this.pluginConfig = pluginConfig;
         this.pluginBootClass = pluginBootClass;
+        this.configSupportList = configSupportList;
+        this.classLoaderMode = classLoaderMode;
     }
+
+    public PluginMetaThin conv() {
+        return new PluginMetaThin(this.pluginId, this.pluginCode,
+                this.pluginDesc, this.pluginVersion, this.pluginExt,
+                this.pluginBootClass, this.configSupportList, this.classLoaderMode);
+    }
+
 }

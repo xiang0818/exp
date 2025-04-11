@@ -1,10 +1,6 @@
 package cn.think.in.java.open.exp.plugin.depend;
 
-import cn.think.in.java.open.exp.client.ExpBoot;
-import cn.think.in.java.open.exp.client.PluginClassLoader;
-import cn.think.in.java.open.exp.client.PluginObjectScanner;
-import cn.think.in.java.open.exp.client.StringUtil;
-import cn.think.in.java.open.exp.plugin.depend.support.PluginIdUtil;
+import cn.think.in.java.open.exp.client.*;
 
 /**
  * @Author cxs
@@ -13,7 +9,7 @@ public abstract class AbstractBoot implements ExpBoot {
 
     private final ClassLoader pluginClassLoader;
     private final String classLocation;
-    private final DefaultScaner pluginBeanRegister;
+    private final DefaultScanner pluginBeanRegister;
 
     public AbstractBoot() {
         if (getClass().getClassLoader() instanceof PluginClassLoader) {
@@ -22,7 +18,7 @@ public abstract class AbstractBoot implements ExpBoot {
             throw new RuntimeException("classLocation 非法");
         }
         this.pluginClassLoader = getClass().getClassLoader();
-        this.pluginBeanRegister = new DefaultScaner();
+        this.pluginBeanRegister = new DefaultScanner();
         this.pluginBeanRegister.setPluginClassLoader(this.pluginClassLoader);
         this.pluginBeanRegister.setLocation(this.classLocation);
         String scanPath = getScanPath();
@@ -37,6 +33,8 @@ public abstract class AbstractBoot implements ExpBoot {
         return this.pluginBeanRegister;
     }
 
-    protected abstract String getScanPath();
+    protected String getScanPath() {
+        return getClass().getPackage().getName();
+    }
 
 }

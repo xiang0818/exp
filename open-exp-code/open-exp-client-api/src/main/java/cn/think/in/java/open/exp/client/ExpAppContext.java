@@ -7,12 +7,17 @@ import java.util.Optional;
 /**
  * @author cxs
  */
-public interface ExpAppContext extends StreamAppContext, TenantService {
+public interface ExpAppContext extends StreamAppContext {
 
     /**
      * 获取当前所有的插件 id
      */
     List<String> getAllPluginId();
+
+    /**
+     * 预加载, 只读取元信息和 load boot class 和配置, 不做 bean 加载.
+     */
+    Plugin preLoad(File file);
 
     /**
      * 加载插件
@@ -29,12 +34,10 @@ public interface ExpAppContext extends StreamAppContext, TenantService {
      */
     <P> List<P> get(String extCode);
 
-
     /**
-     * 简化操作, code 就是全路径类名
+     * 获取多个扩展点的插件实例
      */
     <P> List<P> get(Class<P> pClass);
-
 
     /**
      * 获取单个插件实例.
